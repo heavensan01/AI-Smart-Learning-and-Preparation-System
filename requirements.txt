@@ -1,0 +1,17 @@
+Flask==3.0.3
+Flask-SQLAlchemy==3.1.1
+Flask-Login==0.6.3
+PyMySQL==1.1.1
+python-docx==1.1.2
+pypdf==5.9.0
+python-pptx==1.0.2
+Werkzeug==3.0.3
+cryptography==43.0.0
+python-dotenv==1.0.1
+google-generativeai==0.8.3
+gunicorn==23.0.0   # production server, used by Procfile when deploying (e.g. Render/Railway)
+
+# Optional — the app works fully without this. Only needed if you'd
+# rather use Claude instead of (or as a fallback alongside) Gemini for
+# the AI Assistant and AI Quiz Generator. See README > "AI Assistant".
+# anthropic==0.39.0               # for ANTHROPIC_API_KEY

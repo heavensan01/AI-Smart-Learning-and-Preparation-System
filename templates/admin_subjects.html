@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Subjects · Admin{% endblock %}
+{% block content %}
+<div class="topbar">
+  <div>
+    <div class="greeting">Subjects &amp; Exams</div>
+    <div class="sub">Create subjects, assign a teacher and section, and set exam dates.</div>
+  </div>
+</div>
+
+<div class="grid grid-2" style="margin-bottom:20px;">
+  <div class="card">
+    <h3>Add a subject</h3>
+    {% if not sections %}
+      <p style="color:var(--text-muted); font-size:.86rem;">Add a section first.</p>
+    {% else %}
+    <form method="POST">
+      <label>Subject Name</label>
+      <input type="text" name="name" required placeholder="e.g. Cloud Computing">
+      <div class="form-row">
+        <div>
+          <label>Section</label>
+          <select name="section_id" required>
+            <option value="" disabled selected>Select section</option>
+            {% for sec in sections %}
+              <option value="{{ sec.id }}">{{ sec.label() }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label>Teacher</label>
+          <select name="teacher_id">
+            <option value="">Unassigned</option>
+            {% for t in teachers %}
+              <option value="{{ t.id }}">{{ t.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <label>Description (optional)</label>
+      <input type="text" name="description">
+      <button class="btn btn-primary" type="submit" style="margin-top:10px;">Add subject</button>
+    </form>
+    <p style="font-size:.78rem; color:var(--text-muted); margin-top:10px;">
+      Set exam dates from the <a href="{{ url_for('admin_exams') }}">Exam Dates</a> tab, organized by department.
+    </p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <h3>All Subjects ({{ subjects|length }})</h3>
+  {% if subjects %}
+    <table>
+      <tr><th>Subject</th><th>Section</th><th>Teacher</th><th>Exam Date</th><th></th></tr>
+      {% for s in subjects %}
+      <tr>
+        <td><b>{{ s.name }}</b></td>
+        <td style="color:var(--text-muted); font-size:.82rem;">{{ s.section.label() if s.section else '—' }}</td>
+        <td style="color:var(--text-muted); font-size:.82rem;">{{ s.teacher.name if s.teacher else 'Unassigned' }}</td>
+        <td style="font-size:.82rem;">{{ s.exam_date.strftime('%d %b %Y') if s.exam_date else '—' }}</td>
+        <td>
+          <button class="btn btn-sm btn-secondary" type="button" onclick="document.getElementById('edit-{{ s.id }}').classList.toggle('is-open-row')">Edit</button>
+          <form method="POST" action="{{ url_for('admin_subject_delete', subject_id=s.id) }}" style="display:inline;" onsubmit="return confirm('Delete this subject and all its content?');">
+            <button class="btn btn-sm btn-danger" type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+      <tr id="edit-{{ s.id }}" class="edit-row">
+        <td colspan="5" style="background:var(--surface-2);">
+          <form method="POST" action="{{ url_for('admin_subject_edit', subject_id=s.id) }}" style="display:flex; gap:10px; flex-wrap:wrap; align-items:end; padding:10px 4px;">
+            <div><label style="margin-top:0;">Name</label><input type="text" name="name" value="{{ s.name }}" style="width:160px;"></div>
+            <div><label style="margin-top:0;">Section</label>
+              <select name="section_id" style="width:160px;">
+                {% for sec in sections %}
+                  <option value="{{ sec.id }}" {{ 'selected' if sec.id == s.section_id }}>{{ sec.label() }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div><label style="margin-top:0;">Teacher</label>
+              <select name="teacher_id" style="width:160px;">
+                <option value="">Unassigned</option>
+                {% for t in teachers %}
+                  <option value="{{ t.id }}" {{ 'selected' if s.teacher_id == t.id }}>{{ t.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div><label style="margin-top:0;">Description</label><input type="text" name="description" value="{{ s.description or '' }}" style="width:200px;"></div>
+            <button class="btn btn-sm btn-primary" type="submit">Save</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+  {% else %}
+    <p style="color:var(--text-muted);">No subjects yet.</p>
+  {% endif %}
+</div>
+<style>
+  .edit-row { display: none; }
+  .edit-row.is-open-row { display: table-row; }
+</style>
+{% endblock %}

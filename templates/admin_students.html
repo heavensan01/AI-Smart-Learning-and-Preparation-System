@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Students · Admin{% endblock %}
+{% block content %}
+<div class="topbar">
+  <div>
+    <div class="greeting">Students</div>
+    <div class="sub">Students register themselves with their registration number and password. You can assign sections, edit details, and activate or block accounts here.</div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:20px;">
+  <h3>Filter</h3>
+  <form method="GET">
+    <label>Section</label>
+    <select name="section_id" onchange="this.form.submit()">
+      <option value="">All sections</option>
+      {% for sec in sections %}
+        <option value="{{ sec.id }}" {{ 'selected' if sec.id == section_filter }}>{{ sec.label() }}</option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+
+<div class="card">
+  <h3>All Students ({{ students|length }})</h3>
+  {% if students %}
+    <table>
+      <tr><th>Name</th><th>Register No.</th><th>Section</th><th>Status</th><th></th></tr>
+      {% for s in students %}
+      <tr>
+        <td>{{ s.name }}</td>
+        <td style="color:var(--text-muted);">{{ s.register_number or s.username }}</td>
+        <td style="color:var(--text-muted); font-size:.82rem;">{{ s.section.label() if s.section else '—' }}</td>
+        <td>
+          {% if s.is_active %}<span class="badge badge-good">Active</span>
+          {% else %}<span class="badge badge-bad">Blocked</span>{% endif %}
+        </td>
+        <td style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button class="btn btn-sm btn-secondary" type="button" onclick="document.getElementById('edit-{{ s.id }}').classList.toggle('is-open-row')">Edit</button>
+          <form method="POST" action="{{ url_for('admin_student_toggle', student_id=s.id) }}">
+            <button class="btn btn-sm {{ 'btn-outline' if s.is_active else 'btn-primary' }}" type="submit">{{ 'Block' if s.is_active else 'Activate' }}</button>
+          </form>
+          <form method="POST" action="{{ url_for('admin_student_delete', student_id=s.id) }}" onsubmit="return confirm('Delete this student?');">
+            <button class="btn btn-sm btn-danger" type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+      <tr id="edit-{{ s.id }}" class="edit-row">
+        <td colspan="5" style="background:var(--surface-2);">
+          <form method="POST" action="{{ url_for('admin_student_edit', student_id=s.id) }}" style="display:flex; gap:10px; flex-wrap:wrap; align-items:end; padding:10px 4px;">
+            <div><label style="margin-top:0;">Name</label><input type="text" name="name" value="{{ s.name }}" style="width:160px;"></div>
+            <div><label style="margin-top:0;">Register No.</label><input type="text" name="register_number" value="{{ s.register_number or '' }}" style="width:140px;"></div>
+            <div><label style="margin-top:0;">Email</label><input type="email" name="email" value="{{ s.email or '' }}" style="width:180px;"></div>
+            <div><label style="margin-top:0;">Section</label>
+              <select name="section_id" style="width:170px;">
+                {% for sec in sections %}
+                  <option value="{{ sec.id }}" {{ 'selected' if sec.id == s.section_id }}>{{ sec.label() }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div><label style="margin-top:0;">New Password</label><input type="text" name="password" placeholder="leave blank to keep" style="width:150px;"></div>
+            <div><label style="margin-top:0;">Security Question {% if not s.has_security_question %}<span class="badge badge-bad">not set</span>{% endif %}</label>
+              <select name="security_question" style="width:230px;">
+                {% for q in security_questions %}
+                  <option value="{{ q }}" {{ 'selected' if q == s.security_question }}>{{ q }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div><label style="margin-top:0;">New Answer</label><input type="text" name="security_answer" placeholder="leave blank to keep" autocomplete="off" style="width:150px;"></div>
+            <button class="btn btn-sm btn-primary" type="submit">Save</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+  {% else %}
+    <p style="color:var(--text-muted);">No students yet.</p>
+  {% endif %}
+</div>
+<style>
+  .edit-row { display: none; }
+  .edit-row.is-open-row { display: table-row; }
+</style>
+{% endblock %}

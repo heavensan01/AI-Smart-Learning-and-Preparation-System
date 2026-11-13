@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Quiz Result · Smart Study{% endblock %}
+{% block content %}
+{% from "_icons.html" import icon %}
+<div class="topbar">
+  <div>
+    <div class="greeting">Quiz Result</div>
+    <div class="sub">{{ quiz.subject.name }} {{ '· ' + quiz.note.filename if quiz.note else '' }}</div>
+  </div>
+</div>
+
+<div class="quiz-shell">
+  <div class="quiz-card" style="align-items:center; text-align:center;">
+    <span class="quiz-tag">Quiz Complete</span>
+    <div class="result-circle" style="--pct: {{ attempt.percent }};">
+      <div class="inner">
+        <b>{{ attempt.percent }}%</b>
+        <span style="font-size:.78rem; color:var(--text-muted);">{{ attempt.score }}/{{ attempt.total }} correct</span>
+      </div>
+    </div>
+
+    {% if attempt.result_label == 'Studied Well' %}
+      <span class="badge badge-good" style="font-size:.95rem; padding:8px 16px; display:inline-flex; align-items:center; gap:6px;">{{ icon('check-circle', size=15) }} Studied Well</span>
+      <p style="margin-top:14px; color:var(--text-muted); max-width:380px;">Great work — this topic looks solid.</p>
+    {% elif attempt.result_label == 'Needs Revision' %}
+      <span class="badge badge-warn" style="font-size:.95rem; padding:8px 16px; display:inline-flex; align-items:center; gap:6px;">{{ icon('alert-triangle', size=15) }} Needs Revision</span>
+      <p style="margin-top:14px; color:var(--text-muted); max-width:380px;">Partial understanding detected — revisit this note before your exam.</p>
+    {% else %}
+      <span class="badge badge-bad" style="font-size:.95rem; padding:8px 16px; display:inline-flex; align-items:center; gap:6px;">{{ icon('x-circle', size=15) }} Not Studied Properly</span>
+      <p style="margin-top:14px; color:var(--text-muted); max-width:380px;">Re-read this note and try the quiz again.</p>
+    {% endif %}
+
+    <div style="display:flex; gap:12px; justify-content:center; margin-top:22px;">
+      {% if quiz.note %}
+        <a class="btn btn-secondary" href="{{ url_for('note_view', note_id=quiz.note.id) }}">Back to note</a>
+      {% endif %}
+      <a class="btn btn-outline" href="{{ url_for('dashboard') }}">Dashboard</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% block title %}{{ note.filename }} · Smart Study{% endblock %}
+{% block extra_head %}
+{% if preview_mode == 'docx_client' %}
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
+{% endif %}
+{% endblock %}
+{% block content %}
+{% from "_icons.html" import icon %}
+<div class="topbar">
+  <div>
+    <div class="greeting">{{ note.filename }}</div>
+    <div class="sub">{{ subject.name }} · uploaded by {{ note.uploaded_by.name if note.uploaded_by else 'staff' }} · {{ note.uploaded_at.strftime('%d %b %Y') }}</div>
+  </div>
+  <div style="display:flex; gap:10px;">
+    <a class="btn btn-outline" href="{{ url_for('note_file', note_id=note.id, download=1) }}">{{ icon('download', size=15) }} Download</a>
+    <a class="btn btn-secondary" href="{{ url_for('subject_notes', subject_id=subject.id) }}">Back</a>
+  </div>
+</div>
+
+<!-- ================= STUDY TIMER ================= -->
+<div class="card" style="margin-bottom:20px;">
+  <h3>{{ icon('clock', size=17) }} Study Timer</h3>
+  <p style="font-size:.85rem; color:var(--text-muted); margin-bottom:16px;">
+    Start the timer while you read this note. When you stop, a quiz is generated automatically from it.
+  </p>
+
+  <div class="focus-timer" id="timerRingWrap">
+    <div class="focus-status"><i class="focus-dot" id="timerLiveDot"></i></div>
+    <div class="focus-clock" id="timerClockDisplay">00:00:00</div>
+    <div class="focus-bar"><div class="focus-bar-fill" id="timerRingProgress"></div></div>
+    <div class="focus-controls">
+      <button class="focus-btn focus-btn-start" id="startBtn" onclick="startTimer()">{{ icon('play', size=15) }} Start</button>
+      <button class="focus-btn focus-btn-pause" id="pauseBtn" onclick="pauseTimer()" style="display:none;">{{ icon('pause', size=15) }} Pause</button>
+      <button class="focus-btn focus-btn-stop" id="stopBtn" onclick="stopTimer()" style="display:none;">{{ icon('stop', size=15) }} Stop &amp; Generate Quiz</button>
+    </div>
+    <p class="focus-note" id="timerNote"></p>
+  </div>
+</div>
+
+<!-- ================= AI SUMMARY / AI NOTES ================= -->
+<div class="grid grid-2" style="margin-bottom:20px;">
+  <div class="card">
+    <h3>{{ icon('sparkle', size=16) }} AI Summary</h3>
+    <p id="summaryBox" style="font-size:.88rem; white-space:pre-wrap;">{{ note.ai_summary or 'Not generated yet.' }}</p>
+    <button class="btn btn-sm btn-secondary" onclick="doSummarize()" style="margin-top:8px;">{{ 'Re-summarize' if note.ai_summary else 'Summarize with AI' }}</button>
+  </div>
+  <div class="card">
+    <h3>{{ icon('notes', size=16) }} AI-Generated Notes</h3>
+    <div id="aiNotesBox" style="font-size:.88rem; white-space:pre-wrap;">{{ note.ai_notes or 'Not generated yet.' }}</div>
+    <button class="btn btn-sm btn-secondary" onclick="doAINotes()" style="margin-top:8px;">{{ 'Regenerate' if note.ai_notes else 'Generate AI Notes' }}</button>
+  </div>
+</div>
+
+<!-- ================= QUIZ ================= -->
+<div class="card" style="margin-bottom:20px;">
+  <h3>{{ icon('check-circle', size=16) }} Quiz</h3>
+  <p style="font-size:.85rem; color:var(--text-muted); margin-bottom:10px;">
+    A quiz is auto-generated after you stop the timer. You can also generate one manually any time.
+  </p>
+  <form method="POST" action="{{ url_for('note_generate_quiz_manual', note_id=note.id) }}">
+    <button class="btn btn-primary" type="submit">{{ icon('sparkle', size=15) }} Generate Quiz Now</button>
+  </form>
+</div>
+
+<!-- ================= DOCUMENT VIEWER ================= -->
+<div class="card" style="margin-bottom:20px;">
+  <h3>{{ icon('file', size=16) }} Document</h3>
+  {% if preview_mode == 'topic' %}
+    <div class="a4-page-wrap">
+      <div class="a4-page">{{ text or 'No additional notes for this topic.' }}</div>
+    </div>
+  {% elif preview_mode == 'native' %}
+    <iframe class="material-viewer-frame" src="{{ iframe_url }}"></iframe>
+  {% elif preview_mode == 'docx_client' %}
+    <div class="viewer-fallback-notice">
+      {{ icon('file', size=14) }} Showing a formatted preview — use Download for exact pagination.
+    </div>
+    <div class="a4-page-wrap">
+      <div class="a4-page" id="docxPage"><div class="a4-page-loading">Rendering document…</div></div>
+    </div>
+    <script>
+      fetch("{{ url_for('note_file', note_id=note.id) }}")
+        .then(r => r.arrayBuffer())
+        .then(buffer => mammoth.convertToHtml({ arrayBuffer: buffer }))
+        .then(result => { document.getElementById('docxPage').innerHTML = result.value; })
+        .catch(() => {
+          document.getElementById('docxPage').innerHTML =
+            '<p style="color:#a3324f;">Could not render a preview. Please use Download instead.</p>';
+        });
+    </script>
+  {% elif preview_mode == 'pptx_cards' %}
+    <div class="viewer-fallback-notice">{{ icon('file', size=14) }} Showing each slide's content as a card.</div>
+    <div class="slide-deck">
+      {% for slide in pptx_slides.slides %}
+        <div class="slide-card" style="--ar: {{ pptx_slides.aspect_ratio }};">
+          <span class="slide-number">Slide {{ loop.index }} / {{ pptx_slides.slides|length }}</span>
+          <h3>{{ slide.title }}</h3>
+          {% if slide.bullets %}<ul>{% for b in slide.bullets %}<li>{{ b }}</li>{% endfor %}</ul>{% endif %}
+        </div>
+      {% else %}
+        <p style="color:var(--text-muted);">No readable slides found.</p>
+      {% endfor %}
+    </div>
+  {% elif preview_mode == 'txt' %}
+    <div class="a4-page-wrap">
+      <div class="a4-page a4-mono">{{ text }}</div>
+    </div>
+  {% else %}
+    <p style="color:var(--text-muted);">No preview available — use Download instead.</p>
+  {% endif %}
+</div>
+
+<!-- ================= AI ASSISTANT FOR THIS MATERIAL ================= -->
+<div class="card">
+  <h3>{{ icon('sparkle', size=17) }} Ask AI About This Material</h3>
+  <p style="font-size:.85rem; color:var(--text-muted); margin-bottom:12px;">
+    Open the AI assistant to ask questions scoped to this material, or anything else.
+  </p>
+  <button type="button" class="btn btn-primary" onclick="window.__aiContextNoteId = {{ note.id }}; window.__aiContextName = {{ note.filename|tojson }}; document.getElementById('aiPanelContext').style.display='block'; document.getElementById('aiPanelContext').textContent='Scoped to: ' + {{ note.filename|tojson }}; toggleAIPanel();">
+    {{ icon('sparkle', size=15) }} Open AI Assistant
+  </button>
+</div>
+
+<script>
+const NOTE_ID = {{ note.id|tojson }};
+let sessionId = {{ (active_session.id if active_session and active_session.note_id == note.id else none)|tojson }};
+let elapsed = {{ (active_session.current_elapsed_seconds() if active_session and active_session.note_id == note.id else 0)|tojson }};
+let isPaused = {{ (active_session.is_paused if active_session and active_session.note_id == note.id else true)|tojson }};
+let tickHandle = null;
+
+function fmtHMS(total) {
+  const s = Math.max(0, Math.floor(total));
+  const h = String(Math.floor(s/3600)).padStart(2,'0');
+  const m = String(Math.floor((s%3600)/60)).padStart(2,'0');
+  const sec = String(s%60).padStart(2,'0');
+  return `${h}:${m}:${sec}`;
+}
+function renderTimerUI() {
+  document.getElementById('timerClockDisplay').textContent = fmtHMS(elapsed);
+  document.getElementById('startBtn').style.display = sessionId ? 'none' : 'inline-flex';
+  document.getElementById('pauseBtn').style.display = sessionId ? 'inline-flex' : 'none';
+  document.getElementById('stopBtn').style.display = sessionId ? 'inline-flex' : 'none';
+  document.getElementById('pauseBtn').innerHTML = isPaused ? 'Resume' : 'Pause';
+
+  const ringWrap = document.getElementById('timerRingWrap');
+  const running = !!sessionId && !isPaused;
+  ringWrap.classList.toggle('is-running', running);
+  ringWrap.classList.toggle('is-paused', !!sessionId && isPaused);
+
+  // The bar fills once per minute of study — a simple "alive" visual
+  // rather than a fixed target, since study sessions have no cap.
+  const progressEl = document.getElementById('timerRingProgress');
+  const fraction = sessionId ? (elapsed % 60) / 60 : 0;
+  progressEl.style.transition = (running && fraction > 0) ? 'width 1s linear' : 'none';
+  progressEl.style.width = (fraction * 100) + '%';
+}
+function tick() {
+  if (sessionId && !isPaused) { elapsed += 1; renderTimerUI(); }
+}
+function resync() {
+  fetch("{{ url_for('study_status') }}").then(r => r.json()).then(data => {
+    if (data.active && data.session_id) {
+      sessionId = data.session_id;
+      elapsed = data.elapsed_seconds;
+      isPaused = data.is_paused;
+    } else if (!data.active) {
+      sessionId = null;
+    }
+    renderTimerUI();
+  });
+}
+async function startTimer() {
+  if (sessionId) { document.getElementById('timerNote').textContent = 'A timer is already running — stop it first.'; return; }
+  const res = await fetch(`/study/start/${NOTE_ID}`, { method: 'POST' });
+  const data = await res.json();
+  if (data.error) { document.getElementById('timerNote').textContent = data.error; return; }
+  sessionId = data.session_id; elapsed = data.elapsed_seconds; isPaused = false;
+  renderTimerUI();
+}
+async function pauseTimer() {
+  if (!sessionId) return;
+  const res = await fetch(`/study/toggle_pause/${sessionId}`, { method: 'POST' });
+  const data = await res.json();
+  isPaused = data.is_paused; elapsed = data.elapsed_seconds;
+  renderTimerUI();
+}
+async function stopTimer() {
+  if (!sessionId) return;
+  document.getElementById('timerNote').textContent = 'Generating your quiz…';
+  const res = await fetch(`/study/stop/${sessionId}`, { method: 'POST' });
+  const data = await res.json();
+  sessionId = null;
+  renderTimerUI();
+  if (data.redirect) { window.location.href = data.redirect; }
+  else { document.getElementById('timerNote').textContent = 'Session saved (' + data.duration_minutes + ' min). Could not generate a quiz — this note may have too little readable text.'; }
+}
+renderTimerUI();
+tickHandle = setInterval(tick, 1000);
+setInterval(resync, 5000);
+
+async function doSummarize() {
+  const box = document.getElementById('summaryBox');
+  box.textContent = 'Summarizing…';
+  const res = await fetch(`/notes/${NOTE_ID}/summarize`, { method: 'POST' });
+  const data = await res.json();
+  box.textContent = data.summary || data.error || 'Could not summarize.';
+}
+async function doAINotes() {
+  const box = document.getElementById('aiNotesBox');
+  box.textContent = 'Generating notes…';
+  const res = await fetch(`/notes/${NOTE_ID}/ai_notes`, { method: 'POST' });
+  const data = await res.json();
+  if (data.ai_notes && window.marked) { box.innerHTML = marked.parse(data.ai_notes); }
+  else { box.textContent = data.ai_notes || data.error || 'Could not generate notes.'; }
+}
+</script>
+{% endblock %}

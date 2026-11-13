@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · Smart Study{% endblock %}
+{% block content %}
+{% from "_icons.html" import icon %}
+<div class="topbar">
+  <div>
+    <div class="greeting">Hi {{ current_user.name.split(' ')[0] }}</div>
+    <div class="sub">{{ current_user.section.label() if current_user.section else '' }} — here is your AI study plan for today.</div>
+  </div>
+</div>
+
+<!-- ================= AI ASSISTANT (full screen) ================= -->
+<a href="{{ url_for('ai_fullscreen') }}" class="ai-banner">
+  <span class="ai-banner-ic">{{ icon('sparkle', size=26) }}</span>
+  <span class="ai-banner-text">
+    <b>AI Assistant — full screen</b>
+    <span>Chat about anything, attach images &amp; documents, get quizzes, flashcards and study plans.</span>
+  </span>
+  <span class="ai-banner-cta">Open {{ icon('arrow-right', size=15) }}</span>
+</a>
+
+<!-- ================= STATS ROW ================= -->
+<div class="grid grid-4" style="margin-bottom:20px;">
+  <div class="card">
+    <h3>Study Hours Today</h3>
+    <div class="stat-value">{{ (total_minutes_today / 60)|round(1) }}h</div>
+    <div class="stat-label">{{ total_minutes_today }} minutes</div>
+  </div>
+  <div class="card">
+    <h3>{{ icon('flame', size=15) }} Study Streak</h3>
+    <div class="stat-value">{{ study_streak }}</div>
+    <div class="stat-label">consecutive day{{ 's' if study_streak != 1 else '' }}</div>
+  </div>
+  <div class="card">
+    <h3>Pending Assignments</h3>
+    <div class="stat-value">{{ pending_assignments|length }}</div>
+    <div class="stat-label">due soon</div>
+  </div>
+  <div class="card">
+    <h3>Weak Subjects</h3>
+    <div class="stat-value">{{ weak_subjects|length }}</div>
+    <div class="stat-label">below 60% average</div>
+  </div>
+</div>
+
+<!-- ================= MOOD CHECK-IN ================= -->
+<div class="card" style="margin-bottom:20px;">
+  {% if mood_today %}
+    <h3>{{ icon(mood_options[mood_today].icon, size=16) }} Today's mood: {{ mood_options[mood_today].label }}</h3>
+    <p style="font-size:.85rem; color:var(--text-muted); margin-bottom:10px;">{{ mood_options[mood_today].tip }}</p>
+    <details>
+      <summary style="cursor:pointer; font-size:.82rem; color:var(--text-muted);">Feeling different now? Update your mood</summary>
+      <form method="POST" action="{{ url_for('mood_checkin') }}" class="mood-picker" style="margin-top:12px;">
+        {% for key, opt in mood_options.items() %}
+          <button type="submit" name="mood" value="{{ key }}" class="mood-option {{ 'is-selected' if key == mood_today }}">
+            {{ icon(opt.icon, size=20) }}
+            <span>{{ opt.label }}</span>
+          </button>
+        {% endfor %}
+      </form>
+    </details>
+  {% else %}
+    <h3>How are you feeling today?</h3>
+    <p style="font-size:.85rem; color:var(--text-muted); margin-bottom:14px;">Tell us your mood and we will shape today's study plan around it.</p>
+    <form method="POST" action="{{ url_for('mood_checkin') }}" class="mood-picker">
+      {% for key, opt in mood_options.items() %}
+        <button type="submit" name="mood" value="{{ key }}" class="mood-option">
+          {{ icon(opt.icon, size=20) }}
+          <span>{{ opt.label }}</span>
+        </button>
+      {% endfor %}
+    </form>
+  {% endif %}
+</div>
+
+<!-- ================= TODAY'S STUDY PLAN ================= -->
+<div class="card" style="margin-bottom:20px;">
+  <h3>{{ icon('clock', size=16) }} Today's Study Plan</h3>
+  {% if not mood_today %}
+    <p style="color:var(--text-muted); font-size:.85rem;">Log your mood above to get a personalized plan.</p>
+  {% elif study_plan.mode == 'exam_focus' %}
+    <div class="exam-focus-banner">
+      {{ icon('alert-triangle', size=16) }}
+      <span>Exam tomorrow — today's plan is focused on just this subject.</span>
+    </div>
+    {% for item in study_plan['items'] %}
+      <a href="{{ url_for('subject_notes', subject_id=item.subject.id) }}" class="study-plan-row is-focus">
+        <div><b>{{ item.subject.name }}</b><div style="font-size:.78rem; color:var(--text-muted);">{{ item.reason }}</div></div>
+        <span class="badge badge-warn">{{ item.minutes }} min</span>
+      </a>
+    {% endfor %}
+  {% elif study_plan.mode == 'normal' %}
+    {% for item in study_plan['items'] %}
+      <a href="{{ url_for('subject_notes', subject_id=item.subject.id) }}" class="study-plan-row">
+        <div><b>{{ item.subject.name }}</b><div style="font-size:.78rem; color:var(--text-muted);">{{ item.reason }}</div></div>
+        <span class="badge badge-good">{{ item.minutes }} min</span>
+      </a>
+    {% endfor %}
+  {% else %}
+    <p style="color:var(--text-muted); font-size:.85rem;">No materials to study yet — check back once your teacher uploads some.</p>
+  {% endif %}
+</div>
+
+<!-- ================= AI RECOMMENDATIONS ================= -->
+{% if weak_subjects %}
+<div class="card" style="margin-bottom:20px;">
+  <h3>{{ icon('sparkle', size=16) }} AI Recommendations</h3>
+  {% for w in weak_subjects %}
+    <div style="display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-bottom:1px solid var(--border); font-size:.85rem;">
+      <span>Revise <b>{{ w.subject.name }}</b> — your average score is {{ w.avg_percent }}%</span>
+      <a class="btn btn-sm btn-secondary" href="{{ url_for('subject_notes', subject_id=w.subject.id) }}">Study now</a>
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- ================= EXAM COUNTDOWN ================= -->
+<div class="card" style="margin-bottom:20px;">
+  <h3>{{ icon('calendar', size=16) }} Exam Countdown</h3>
+  {% if exam_timetable %}
+    <table>
+      <tr><th>Subject</th><th>Date</th><th></th></tr>
+      {% for s in exam_timetable %}
+        {% set countdown = exam_countdown_label(s.exam_date, today) %}
+        <tr>
+          <td>{{ s.name }}</td>
+          <td style="font-size:.85rem; color:var(--text-muted);">{{ s.exam_date.strftime('%d %b %Y') }}</td>
+          <td>
+            {% if countdown == 'Tomorrow' %}<span class="badge badge-warn">Tomorrow</span>
+            {% elif countdown == 'Today' %}<span class="badge badge-bad">Today</span>
+            {% elif countdown == 'Passed' %}<span class="badge">Passed</span>
+            {% else %}<span class="badge badge-good">{{ countdown }}</span>{% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </table>
+  {% else %}
+    <p style="color:var(--text-muted); font-size:.85rem;">No exam dates set yet.</p>
+  {% endif %}
+</div>
+
+<!-- ================= PENDING ASSIGNMENTS ================= -->
+<div class="card" style="margin-bottom:20px;">
+  <h3>Pending Assignments</h3>
+  {% if pending_assignments %}
+    <table>
+      <tr><th>Title</th><th>Subject</th><th>Deadline</th><th></th></tr>
+      {% for a in pending_assignments %}
+      <tr>
+        <td>{{ a.title }}</td>
+        <td style="color:var(--text-muted); font-size:.82rem;">{{ a.subject.name }}</td>
+        <td style="font-size:.82rem; color:var(--text-muted);">{{ a.deadline.strftime('%d %b, %I:%M %p') }}</td>
+        <td><a class="btn btn-sm btn-secondary" href="{{ url_for('subject_notes', subject_id=a.subject_id) }}">View</a></td>
+      </tr>
+      {% endfor %}
+    </table>
+  {% else %}
+    <p style="color:var(--text-muted); font-size:.85rem;">Nothing pending — you're all caught up.</p>
+  {% endif %}
+</div>
+
+<!-- ================= MY SUBJECTS ================= -->
+<div id="subjects" class="card" style="margin-bottom:20px;">
+  <h3>My Subjects</h3>
+  {% if subjects %}
+    <div class="grid grid-3">
+      {% for s in subjects %}
+        <a href="{{ url_for('subject_notes', subject_id=s.id) }}" class="card" style="text-decoration:none; color:inherit; display:block;">
+          <b>{{ s.name }}</b>
+          <div style="font-size:.8rem; color:var(--text-muted); margin-top:6px;">{{ note_counts.get(s.id, 0) }} material{{ 's' if note_counts.get(s.id, 0) != 1 else '' }}</div>
+        </a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p style="color:var(--text-muted);">No subjects assigned to your section yet.</p>
+  {% endif %}
+</div>
+
+<!-- ================= RECENT ACTIVITY ================= -->
+<div class="grid grid-2">
+  <div class="card">
+    <h3>Recent Study Sessions</h3>
+    {% for sess in recent_sessions %}
+      <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border); font-size:.85rem;">
+        <span>{{ sess.subject.name if sess.subject else '—' }}</span>
+        <span style="color:var(--text-muted);">{{ sess.duration_minutes or 0 }} min</span>
+      </div>
+    {% else %}
+      <p style="color:var(--text-muted); font-size:.85rem;">No study sessions yet.</p>
+    {% endfor %}
+  </div>
+  <div class="card">
+    <h3>Recent Quiz Results</h3>
+    {% for a in recent_attempts %}
+      <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border); font-size:.85rem;">
+        <span>{{ a.quiz.subject.name if a.quiz and a.quiz.subject else '—' }}</span>
+        <span class="badge {{ 'badge-good' if a.percent >= 70 else ('badge-warn' if a.percent >= 40 else 'badge-bad') }}">{{ a.percent|round|int }}%</span>
+      </div>
+    {% else %}
+      <p style="color:var(--text-muted); font-size:.85rem;">No quizzes taken yet.</p>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

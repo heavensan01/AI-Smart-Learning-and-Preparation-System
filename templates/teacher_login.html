@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Teacher Login · Smart Study{% endblock %}
+{% block guest_content %}
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div class="brand">
+      <div class="logo-dot"></div>
+      <h2>Teacher Login</h2>
+      <p style="color:var(--text-muted); font-size:.86rem;">Manage materials, assignments and quizzes for your subjects</p>
+    </div>
+    <form method="POST">
+      <label>Username</label>
+      <input type="text" name="username" required placeholder="username your admin gave you" autofocus>
+      <label>Password</label>
+      <div class="password-field">
+        <input type="password" name="password" id="loginPassword" required placeholder="Password">
+        <button type="button" class="password-toggle" onclick="togglePasswordVisibility('loginPassword', this)" aria-label="Show password">
+          {{ icon('eye', size=17, cls='icon-eye') }}
+          {{ icon('eye-off', size=17, cls='icon-eye-off') }}
+        </button>
+      </div>
+      <div style="text-align:right; margin-top:8px; font-size:.8rem;">
+        <a href="{{ url_for('teacher_forgot_password') }}">Forgot password?</a>
+      </div>
+      <button class="btn btn-primary" style="width:100%; justify-content:center; margin-top:16px;" type="submit">Log in</button>
+    </form>
+    <p style="text-align:center; margin-top:16px; font-size:.8rem; color:var(--text-muted);">
+      Don't have an account? Your admin creates it for you.
+    </p>
+    <p style="text-align:center; margin-top:6px; font-size:.8rem;">
+      <a href="{{ url_for('index') }}">← Back</a>
+    </p>
+  </div>
+</div>
+<script>
+function togglePasswordVisibility(inputId, btn) {
+  const input = document.getElementById(inputId);
+  const isVisible = input.type === 'text';
+  input.type = isVisible ? 'password' : 'text';
+  btn.classList.toggle('is-visible', !isVisible);
+}
+</script>
+{% endblock %}

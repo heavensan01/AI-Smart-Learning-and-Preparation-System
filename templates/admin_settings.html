@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}AI Settings · Admin{% endblock %}
+{% block content %}
+{% from "_icons.html" import icon %}
+<div class="topbar">
+  <div>
+    <div class="greeting">AI Settings</div>
+    <div class="sub">Connect Google Gemini so summarize, AI notes, quiz generation, and chat all use real AI instead of the offline engine.</div>
+  </div>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <h3>{{ icon('sparkle', size=16) }} Gemini API Key</h3>
+    <p style="font-size:.85rem; color:var(--text-muted); margin-bottom:10px;">
+      {% if has_key %}
+        Currently connected — key ending in <code>{{ masked_key }}</code>.
+      {% else %}
+        Not connected — features are running on the built-in offline engine.
+      {% endif %}
+    </p>
+    <form method="POST">
+      <label>Gemini API Key</label>
+      <div class="password-field">
+        <input type="password" name="gemini_api_key" id="geminiKey" placeholder="{{ 'Paste a new key to replace it, or leave blank to keep current' if has_key else 'Paste your Gemini API key' }}">
+        <button type="button" class="password-toggle" onclick="togglePasswordVisibility('geminiKey', this)" aria-label="Show key">
+          {{ icon('eye', size=18, cls='icon-eye') }}
+          {{ icon('eye-off', size=18, cls='icon-eye-off') }}
+        </button>
+      </div>
+      <p style="font-size:.78rem; color:var(--text-muted); margin:6px 0 0;">
+        Don't have one? Get a free key at
+        <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.
+      </p>
+      <div style="display:flex; gap:10px; margin-top:14px;">
+        <button class="btn btn-primary" type="submit">Save key</button>
+      </div>
+    </form>
+    {% if has_key %}
+    <form method="POST" action="{{ url_for('admin_settings_clear') }}" style="margin-top:10px;" onsubmit="return confirm('Remove the Gemini key? AI features will fall back to the offline engine.');">
+      <button class="btn btn-sm" type="submit" style="background:#c0435a; color:#fff;">Remove key</button>
+    </form>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h3>What Gemini powers</h3>
+    <ul style="font-size:.85rem; color:var(--text-muted); padding-left:18px; line-height:1.9;">
+      <li><b>AI Summary</b> — condenses a note into a short paragraph</li>
+      <li><b>AI Notes</b> — structured study notes with headings &amp; bolded key terms</li>
+      <li><b>Auto &amp; manual quiz generation</b> — multiple-choice questions from note content</li>
+      <li><b>AI Chat</b> — students can ask questions about a note, or anything else</li>
+    </ul>
+    <p style="font-size:.8rem; color:var(--text-muted); margin-top:10px;">
+      Without a key, all four features still work using a built-in offline engine — no signup, no cost — just less capable than real Gemini.
+    </p>
+  </div>
+</div>
+<script>
+function togglePasswordVisibility(inputId, btn) {
+  const input = document.getElementById(inputId);
+  const isVisible = input.type === 'text';
+  input.type = isVisible ? 'password' : 'text';
+  btn.classList.toggle('is-visible', !isVisible);
+}
+</script>
+{% endblock %}

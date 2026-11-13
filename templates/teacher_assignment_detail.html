@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}{{ assignment.title }} · Teacher{% endblock %}
+{% block content %}
+{% from "_icons.html" import icon %}
+<div class="topbar">
+  <div>
+    <div class="greeting">{{ assignment.title }}</div>
+    <div class="sub">{{ subject.name }} · Due {{ assignment.deadline.strftime('%d %b %Y, %I:%M %p') }} · Max marks {{ assignment.max_marks }}</div>
+  </div>
+  <a href="{{ url_for('teacher_subject_detail', subject_id=subject.id) }}" class="btn btn-sm btn-secondary">← Back</a>
+</div>
+
+{% if assignment.description %}
+<div class="card" style="margin-bottom:20px;">
+  <h3>Description</h3>
+  <p>{{ assignment.description }}</p>
+  {% if assignment.attachment_path %}
+    <a class="btn btn-sm btn-outline" href="{{ url_for('teacher_assignment_file', assignment_id=assignment.id) }}">{{ icon('download', size=13) }} Download attachment</a>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="card">
+  <h3>Submissions ({{ submissions|length }})</h3>
+  {% if submissions %}
+    <table>
+      <tr><th>Student</th><th>Submitted</th><th>File</th><th>Marks</th><th>Feedback</th><th></th></tr>
+      {% for s in submissions %}
+      <tr>
+        <td>{{ s.student.name }}</td>
+        <td style="font-size:.82rem; color:var(--text-muted);">{{ s.submitted_at.strftime('%d %b, %I:%M %p') }}</td>
+        <td><a href="{{ url_for('teacher_submission_file', submission_id=s.id) }}">{{ s.file_name }}</a></td>
+        <td>{{ s.marks if s.marks is not none else '—' }} / {{ assignment.max_marks }}</td>
+        <td style="max-width:180px; font-size:.82rem; color:var(--text-muted);">{{ s.feedback or '—' }}</td>
+        <td>
+          <button class="btn btn-sm btn-secondary" type="button" onclick="document.getElementById('grade-{{ s.id }}').classList.toggle('is-open-row')">Grade</button>
+        </td>
+      </tr>
+      <tr id="grade-{{ s.id }}" class="edit-row">
+        <td colspan="6" style="background:var(--surface-2);">
+          <form method="POST" action="{{ url_for('teacher_submission_grade', submission_id=s.id) }}" style="display:flex; gap:10px; align-items:end; padding:10px 4px; flex-wrap:wrap;">
+            <div><label style="margin-top:0;">Marks (out of {{ assignment.max_marks }})</label><input type="number" name="marks" value="{{ s.marks or '' }}" style="width:100px;"></div>
+            <div style="flex:1; min-width:200px;"><label style="margin-top:0;">Feedback</label><input type="text" name="feedback" value="{{ s.feedback or '' }}"></div>
+            <button class="btn btn-sm btn-primary" type="submit">Save</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+  {% else %}
+    <p style="color:var(--text-muted);">No submissions yet.</p>
+  {% endif %}
+</div>
+<style>
+  .edit-row { display: none; }
+  .edit-row.is-open-row { display: table-row; }
+</style>
+{% endblock %}

@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2f5fd6">
+  <script>
+    (function () {
+      var stored = localStorage.getItem('sss-theme');
+      var theme = stored || ((window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+  <title>{% block title %}Smart Study System{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+{% from "_icons.html" import icon %}
+
+<button type="button" id="themeToggle" class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode" title="Toggle light / dark mode">
+  <span class="theme-toggle-icon theme-toggle-icon-sun">{{ icon('sun', size=18) }}</span>
+  <span class="theme-toggle-icon theme-toggle-icon-moon">{{ icon('moon', size=18) }}</span>
+</button>
+<script>
+  function toggleTheme() {
+    var html = document.documentElement;
+    var next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    localStorage.setItem('sss-theme', next);
+  }
+</script>
+
+{% if current_user.is_authenticated %}
+<button type="button" class="hamburger-btn" id="hamburgerBtn" onclick="toggleSidebar()" aria-label="Toggle menu"><span></span></button>
+<div class="sidebar-scrim" id="sidebarScrim" onclick="toggleSidebar(false)"></div>
+
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><span class="dot"></span> Smart Study</div>
+
+    {% if is_admin_user %}
+      <a href="{{ url_for('admin_dashboard') }}" class="{{ 'active' if request.endpoint == 'admin_dashboard' }}">{{ icon('chart', size=17) }} Dashboard</a>
+      <a href="{{ url_for('admin_students') }}" class="{{ 'active' if request.endpoint in ['admin_students'] }}">{{ icon('home', size=17) }} Students</a>
+      <a href="{{ url_for('admin_teachers') }}" class="{{ 'active' if request.endpoint == 'admin_teachers' }}">{{ icon('book', size=17) }} Teachers</a>
+      <a href="{{ url_for('admin_sections') }}" class="{{ 'active' if request.endpoint == 'admin_sections' }}">{{ icon('map-pin', size=17) }} Sections</a>
+      <a href="{{ url_for('admin_subjects') }}" class="{{ 'active' if request.endpoint == 'admin_subjects' }}">{{ icon('notes', size=17) }} Subjects &amp; Exams</a>
+      <a href="{{ url_for('admin_exams') }}" class="{{ 'active' if request.endpoint in ['admin_exams'] }}">{{ icon('calendar', size=17) }} Exam Dates</a>
+      <a href="{{ url_for('admin_reports') }}" class="{{ 'active' if request.endpoint == 'admin_reports' }}">{{ icon('bell', size=17) }} Reports</a>
+      <a href="{{ url_for('admin_settings') }}" class="{{ 'active' if request.endpoint == 'admin_settings' }}">{{ icon('sparkle', size=17) }} AI Settings</a>
+    {% elif is_teacher_user %}
+      <a href="{{ url_for('teacher_dashboard') }}" class="{{ 'active' if request.endpoint == 'teacher_dashboard' }}">{{ icon('chart', size=17) }} Dashboard</a>
+      <a href="{{ url_for('teacher_students') }}" class="{{ 'active' if request.endpoint == 'teacher_students' }}">{{ icon('home', size=17) }} Student Monitoring</a>
+      <a href="{{ url_for('notifications') }}" class="{{ 'active' if request.endpoint == 'notifications' }}" style="position:relative;">
+        {{ icon('bell', size=17) }} Notifications
+        {% if unread_notification_count > 0 %}<span class="notif-badge" style="position:static; margin-left:auto;">{{ unread_notification_count }}</span>{% endif %}
+      </a>
+      <a href="{{ url_for('change_password') }}" class="{{ 'active' if request.endpoint == 'change_password' }}">{{ icon('eye', size=17) }} Change Password</a>
+    {% elif is_student_user %}
+      <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' }}">{{ icon('home', size=17) }} Dashboard</a>
+      <a href="{{ url_for('ai_fullscreen') }}" class="{{ 'active' if request.endpoint == 'ai_fullscreen' }}">{{ icon('sparkle', size=17) }} AI Assistant</a>
+      <a href="{{ url_for('analytics') }}" class="{{ 'active' if request.endpoint == 'analytics' }}">{{ icon('chart', size=17) }} Performance</a>
+      <a href="{{ url_for('notifications') }}" class="{{ 'active' if request.endpoint == 'notifications' }}" style="position:relative;">
+        {{ icon('bell', size=17) }} Notifications
+        {% if unread_notification_count > 0 %}<span class="notif-badge" style="position:static; margin-left:auto;">{{ unread_notification_count }}</span>{% endif %}
+      </a>
+      <a href="{{ url_for('change_password') }}" class="{{ 'active' if request.endpoint == 'change_password' }}">{{ icon('eye', size=17) }} Change Password</a>
+    {% endif %}
+
+    <a href="{{ url_for('logout') }}" style="margin-top:6px;">{{ icon('logout', size=17) }} Logout</a>
+
+    {% if is_student_user %}
+    <div id="miniTimer" class="mini-timer" style="display:none; cursor:pointer;" onclick="miniTimerGoToNote(event)" title="Go to timer">
+      <div class="mini-timer-label">Studying now</div>
+      <div class="mini-timer-subject" id="miniTimerSubject">—</div>
+      <div class="mini-timer-clock" id="miniTimerClock">00:00:00</div>
+      <div class="mini-timer-actions">
+        <button type="button" class="mini-timer-btn" id="miniTimerPauseBtn" onclick="miniTimerTogglePause(event)">{{ icon('pause', size=12) }} Pause</button>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="footer-link">
+      Signed in as<br><b>{{ current_user.name }}</b>
+      {% if is_student_user and current_user.section %}<br>{{ current_user.section.label() }}{% endif %}
+    </div>
+  </aside>
+  <main class="main">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+
+<script>
+function toggleSidebar(force) {
+  const sidebar = document.getElementById('sidebar');
+  const scrim = document.getElementById('sidebarScrim');
+  const btn = document.getElementById('hamburgerBtn');
+  const open = typeof force === 'boolean' ? force : !sidebar.classList.contains('is-open');
+  sidebar.classList.toggle('is-open', open);
+  scrim.classList.toggle('is-visible', open);
+  btn.classList.toggle('is-open', open);
+}
+document.querySelectorAll('.sidebar a').forEach(a => a.addEventListener('click', () => {
+  if (window.innerWidth <= 900) toggleSidebar(false);
+}));
+</script>
+
+{% if is_student_user %}
+<!-- ============== Floating AI Assistant (doubts + chit-chat) ============== -->
+<button type="button" id="aiFab" class="ai-fab" onclick="toggleAIPanel()" aria-label="Open AI Assistant">
+  {{ icon('sparkle', size=23) }}
+</button>
+
+<div id="aiPanel" class="ai-panel">
+  <div class="ai-panel-header">
+    <div class="ai-panel-title">
+      {{ icon('sparkle', size=16) }} AI Study Assistant
+      <span class="ai-backend-badge {{ 'is-active' if ai_backend_active }}">{{ 'Gemini' if ai_backend_active else 'Offline' }}</span>
+    </div>
+    <div style="display:flex; align-items:center; gap:4px;">
+      <a href="{{ url_for('ai_fullscreen') }}" class="ai-panel-icon-btn" title="Open full screen" aria-label="Open full screen">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+      </a>
+      <button type="button" class="ai-panel-icon-btn" onclick="toggleAIPanel()" title="Close">{{ icon('x', size=16) }}</button>
+    </div>
+  </div>
+  <div class="ai-panel-context" id="aiPanelContext" style="display:none;"></div>
+  <div class="ai-panel-messages" id="aiPanelMessages">
+    <div class="ai-msg-row ai-msg-row-assistant">
+      <div class="ai-msg ai-msg-assistant">
+        Hi, I'm your study assistant. Ask me a doubt about any subject, request an explanation or example, or just say hello.
+      </div>
+    </div>
+  </div>
+  <form class="ai-panel-input" id="aiPanelForm" onsubmit="return sendAIPanelMessage(event)">
+    <input type="text" id="aiPanelInput" placeholder="Ask a question..." autocomplete="off">
+    <button type="submit" aria-label="Send">{{ icon('send', size=16) }}</button>
+  </form>
+</div>
+
+<script>
+let __aiHistoryLoaded = false;
+
+function toggleAIPanel() {
+  const panel = document.getElementById('aiPanel');
+  const opening = !panel.classList.contains('is-open');
+  panel.classList.toggle('is-open');
+  document.getElementById('aiFab').classList.toggle('is-open', opening);
+  if (opening && !__aiHistoryLoaded) loadAIPanelHistory();
+  if (opening) setTimeout(() => document.getElementById('aiPanelInput').focus(), 150);
+}
+
+function __panelNowTimeStr() {
+  return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+}
+function __panelDisplayTimeStr(time) {
+  if (!time) return __panelNowTimeStr();
+  const d = new Date(time);
+  return isNaN(d.getTime()) ? time : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+}
+
+function aiMsgHTML(role, content, time) {
+  const rowCls = role === 'user' ? 'ai-msg-row-user' : 'ai-msg-row-assistant';
+  const bubbleCls = role === 'user' ? 'ai-msg-user' : 'ai-msg-assistant';
+  const row = document.createElement('div');
+  row.className = 'ai-msg-row ' + rowCls;
+  const bubble = document.createElement('div');
+  bubble.className = 'ai-msg ' + bubbleCls;
+  if (role === 'assistant' && window.marked) bubble.innerHTML = marked.parse(content);
+  else bubble.textContent = content;
+  row.appendChild(bubble);
+  const timeEl = document.createElement('div');
+  timeEl.className = 'ai-msg-time';
+  timeEl.textContent = __panelDisplayTimeStr(time);
+  row.appendChild(timeEl);
+  return row;
+}
+
+async function loadAIPanelHistory() {
+  try {
+    const res = await fetch("{{ url_for('ai_history') }}");
+    const data = await res.json();
+    const box = document.getElementById('aiPanelMessages');
+    if (data.messages && data.messages.length) {
+      box.innerHTML = '';
+      data.messages.slice(-12).forEach(m => box.appendChild(aiMsgHTML(m.role, m.content, m.created_at)));
+      box.scrollTop = box.scrollHeight;
+    }
+    __aiHistoryLoaded = true;
+  } catch (e) { /* keep default greeting */ }
+}
+
+async function sendAIPanelMessage(evt) {
+  evt.preventDefault();
+  const input = document.getElementById('aiPanelInput');
+  const question = input.value.trim();
+  if (!question) return false;
+
+  const box = document.getElementById('aiPanelMessages');
+  box.appendChild(aiMsgHTML('user', question));
+  input.value = '';
+  input.disabled = true;
+
+  const thinking = document.createElement('div');
+  thinking.className = 'ai-msg-row ai-msg-row-assistant ai-msg-thinking';
+  const thinkingBubble = document.createElement('div');
+  thinkingBubble.className = 'ai-msg ai-msg-assistant';
+  thinkingBubble.textContent = 'Thinking...';
+  thinking.appendChild(thinkingBubble);
+  box.appendChild(thinking);
+  box.scrollTop = box.scrollHeight;
+
+  try {
+    const res = await fetch("{{ url_for('ai_ask') }}", {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, note_id: window.__aiContextNoteId || null }),
+    });
+    const data = await res.json();
+    thinking.remove();
+    box.appendChild(aiMsgHTML('assistant', data.answer || data.error || "Something went wrong — try again."));
+  } catch (e) {
+    thinking.remove();
+    box.appendChild(aiMsgHTML('assistant', "Couldn't reach the server — check your connection and try again."));
+  }
+  input.disabled = false;
+  input.focus();
+  box.scrollTop = box.scrollHeight;
+  return false;
+}
+</script>
+{% endif %}
+
+{% if is_student_user %}
+<script>
+let __miniTimerSeconds = 0;
+let __miniTimerPaused = true;
+let __miniTimerSessionId = null;
+let __miniTimerNoteId = null;
+let __miniTimerSubjectId = null;
+let __miniTimerTickHandle = null;
+
+function __fmtHMS(totalSeconds) {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const h = String(Math.floor(s / 3600)).padStart(2, '0');
+  const m = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+  const sec = String(s % 60).padStart(2, '0');
+  return `${h}:${m}:${sec}`;
+}
+function __miniTimerRenderTick() {
+  if (!__miniTimerPaused) {
+    __miniTimerSeconds += 1;
+    const clockEl = document.getElementById('miniTimerClock');
+    if (clockEl) clockEl.textContent = __fmtHMS(__miniTimerSeconds);
+  }
+}
+async function refreshMiniTimer() {
+  try {
+    const res = await fetch("{{ url_for('study_status') }}");
+    const data = await res.json();
+    const box = document.getElementById('miniTimer');
+    if (!box) return;
+    if (!data.active) {
+      box.style.display = 'none';
+      if (__miniTimerTickHandle) { clearInterval(__miniTimerTickHandle); __miniTimerTickHandle = null; }
+      return;
+    }
+    box.style.display = 'block';
+    __miniTimerSessionId = data.session_id;
+    __miniTimerNoteId = data.note_id;
+    __miniTimerSubjectId = data.subject_id;
+    __miniTimerSeconds = data.elapsed_seconds;
+    __miniTimerPaused = data.is_paused;
+    document.getElementById('miniTimerSubject').textContent = data.note_name ? (data.subject_name + ' · ' + data.note_name) : data.subject_name;
+    document.getElementById('miniTimerClock').textContent = __fmtHMS(__miniTimerSeconds);
+    const pauseBtn = document.getElementById('miniTimerPauseBtn');
+    if (pauseBtn) pauseBtn.textContent = __miniTimerPaused ? 'Resume' : 'Pause';
+    box.classList.toggle('is-paused', __miniTimerPaused);
+    if (!__miniTimerTickHandle) __miniTimerTickHandle = setInterval(__miniTimerRenderTick, 1000);
+  } catch (e) { /* silent */ }
+}
+async function miniTimerTogglePause(evt) {
+  if (evt) evt.stopPropagation();
+  if (!__miniTimerSessionId) return;
+  await fetch(`/study/toggle_pause/${__miniTimerSessionId}`, { method: 'POST' });
+  refreshMiniTimer();
+  if (typeof resync === 'function') resync();
+}
+function miniTimerGoToNote(evt) {
+  if (__miniTimerNoteId) {
+    window.location.href = `/notes/${__miniTimerNoteId}`;
+  } else if (__miniTimerSubjectId) {
+    window.location.href = `/subjects/${__miniTimerSubjectId}`;
+  }
+}
+refreshMiniTimer();
+setInterval(refreshMiniTimer, 5000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshMiniTimer(); });
+</script>
+{% endif %}
+
+{% else %}
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div style="max-width:420px;margin:16px auto 0;">
+      {% for category, message in messages %}
+        <div class="flash flash-{{ category }}">{{ message }}</div>
+      {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+  {% block guest_content %}{% endblock %}
+{% endif %}
+</body>
+</html>

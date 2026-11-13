@@ -1,0 +1,25 @@
+# --- secrets: never commit these ---
+.env
+
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+
+# --- database (each environment should build its own) ---
+instance/*.db
+
+# --- uploaded student files (user data, not source code) ---
+uploads/notes/*
+!uploads/notes/.gitkeep
+!uploads/notes/previews/
+uploads/notes/previews/*
+!uploads/notes/previews/.gitkeep
+
+# --- OS / editor cruft ---
+.DS_Store
+.vscode/
+.idea/

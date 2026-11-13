@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Student Registration · Smart Study{% endblock %}
+{% block guest_content %}
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div class="brand">
+      <div class="logo-dot"></div>
+      <h2>Create Your Account</h2>
+      <p style="color:var(--text-muted); font-size:.86rem;">Register with your registration number and set your own password</p>
+    </div>
+    {% if not sections %}
+      <p style="color:var(--text-muted); font-size:.86rem;">No sections have been set up yet. Please contact your admin before registering.</p>
+    {% else %}
+    <form method="POST">
+      <label>Full Name</label>
+      <input type="text" name="name" required placeholder="Your full name" autofocus>
+
+      <label>Registration Number</label>
+      <input type="text" name="register_number" required placeholder="e.g. 21CS045">
+
+      <label>Section</label>
+      <select name="section_id" required>
+        <option value="" disabled selected>Select section</option>
+        {% for sec in sections %}
+          <option value="{{ sec.id }}">{{ sec.label() }}</option>
+        {% endfor %}
+      </select>
+
+      <label>Password</label>
+      <div class="password-field">
+        <input type="password" name="password" id="regPassword" required placeholder="Create a password" minlength="6">
+        <button type="button" class="password-toggle" onclick="togglePasswordVisibility('regPassword', this)" aria-label="Show password">
+          {{ icon('eye', size=17, cls='icon-eye') }}
+          {{ icon('eye-off', size=17, cls='icon-eye-off') }}
+        </button>
+      </div>
+
+      <label>Confirm Password</label>
+      <div class="password-field">
+        <input type="password" name="confirm_password" id="regConfirmPassword" required placeholder="Re-enter your password" minlength="6">
+        <button type="button" class="password-toggle" onclick="togglePasswordVisibility('regConfirmPassword', this)" aria-label="Show password">
+          {{ icon('eye', size=17, cls='icon-eye') }}
+          {{ icon('eye-off', size=17, cls='icon-eye-off') }}
+        </button>
+      </div>
+
+      <label>Security Question</label>
+      <select name="security_question" required>
+        <option value="" disabled selected>Choose a question</option>
+        {% for q in security_questions %}
+          <option value="{{ q }}">{{ q }}</option>
+        {% endfor %}
+      </select>
+
+      <label>Your Answer</label>
+      <input type="text" name="security_answer" required minlength="2" maxlength="100" placeholder="Answer to the question above" autocomplete="off">
+      <p style="font-size:.76rem; color:var(--text-muted); margin-top:6px;">
+        You will need this answer if you ever forget your password. It is not case-sensitive.
+      </p>
+
+      <button class="btn btn-primary" style="width:100%; justify-content:center; margin-top:16px;" type="submit">Create Account</button>
+    </form>
+    {% endif %}
+    <p style="text-align:center; margin-top:16px; font-size:.8rem; color:var(--text-muted);">
+      Already have an account? <a href="{{ url_for('student_login') }}">Log in</a>
+    </p>
+    <p style="text-align:center; margin-top:6px; font-size:.8rem;">
+      <a href="{{ url_for('index') }}">← Back</a>
+    </p>
+  </div>
+</div>
+<script>
+function togglePasswordVisibility(inputId, btn) {
+  const input = document.getElementById(inputId);
+  const isVisible = input.type === 'text';
+  input.type = isVisible ? 'password' : 'text';
+  btn.classList.toggle('is-visible', !isVisible);
+}
+</script>
+{% endblock %}

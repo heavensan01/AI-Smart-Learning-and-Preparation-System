@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Exam Dates · Admin{% endblock %}
+{% block content %}
+<div class="topbar">
+  <div>
+    <div class="greeting">Exam Dates</div>
+    <div class="sub">Set exam dates per subject, organized by department.</div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:20px;">
+  <h3>Filter</h3>
+  <form method="GET">
+    <label>Department</label>
+    <select name="department" onchange="this.form.submit()">
+      <option value="">All departments</option>
+      {% for d in departments %}
+        <option value="{{ d }}" {{ 'selected' if d == department_filter }}>{{ d }}</option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+
+{% if not grouped %}
+  <div class="card"><p style="color:var(--text-muted);">No subjects found.</p></div>
+{% else %}
+  {% for department, subjects in grouped.items() %}
+  <div class="card" style="margin-bottom:20px;">
+    <h3>{{ department }}</h3>
+    <table>
+      <tr><th>Subject</th><th>Section</th><th>Current Exam Date</th><th>Set / Update</th></tr>
+      {% for s in subjects %}
+      <tr>
+        <td><b>{{ s.name }}</b></td>
+        <td style="color:var(--text-muted); font-size:.82rem;">{{ s.section.label() if s.section else '—' }}</td>
+        <td style="font-size:.82rem;">{{ s.exam_date.strftime('%d %b %Y') if s.exam_date else '—' }}</td>
+        <td>
+          <form method="POST" action="{{ url_for('admin_exam_set', subject_id=s.id) }}" style="display:flex; gap:8px; align-items:center;">
+            <input type="hidden" name="department_filter" value="{{ department_filter }}">
+            <input type="date" name="exam_date" value="{{ s.exam_date.strftime('%Y-%m-%d') if s.exam_date else '' }}" style="width:150px;">
+            <button class="btn btn-sm btn-primary" type="submit">Save</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+  {% endfor %}
+{% endif %}
+{% endblock %}

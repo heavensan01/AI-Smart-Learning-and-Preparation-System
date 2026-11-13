@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block title %}{{ subject.name }} · Smart Study{% endblock %}
+{% block content %}
+{% from "_icons.html" import icon %}
+<div class="topbar">
+  <div>
+    <div class="greeting">{{ subject.name }}</div>
+    <div class="sub">{{ subject.description or 'Materials and activities for this subject.' }}</div>
+  </div>
+  <a href="{{ url_for('dashboard') }}" class="btn btn-sm btn-secondary">← All subjects</a>
+</div>
+
+{% if progress_percent is not none %}
+<div class="card" style="margin-bottom:20px;">
+  <h3>Subject Progress</h3>
+  <div class="progress-track"><div class="progress-fill" style="width:{{ progress_percent }}%;"></div></div>
+  <p style="font-size:.8rem; color:var(--text-muted); margin-top:8px;">Average quiz score: {{ progress_percent }}%</p>
+</div>
+{% endif %}
+
+<!-- ================= STUDY TIMER ================= -->
+<div class="card" style="margin-bottom:20px;">
+  <h3>{{ icon('clock', size=17) }} Study Timer</h3>
+  <p style="font-size:.85rem; color:var(--text-muted); margin-bottom:16px;">
+    Track time spent on {{ subject.name }} — works even before any material is uploaded.
+  </p>
+
+  <div class="focus-timer" id="subjTimerRingWrap">
+    <div class="focus-status"><i class="focus-dot" id="subjTimerLiveDot"></i></div>
+    <div class="focus-clock" id="subjTimerClockDisplay">00:00:00</div>
+    <div class="focus-bar"><div class="focus-bar-fill" id="subjTimerRingProgress"></div></div>
+    <div class="focus-controls">
+      <button class="focus-btn focus-btn-start" id="subjStartBtn" onclick="subjStartTimer()">{{ icon('play', size=15) }} Start</button>
+      <button class="focus-btn focus-btn-pause" id="subjPauseBtn" onclick="subjPauseTimer()" style="display:none;">{{ icon('pause', size=15) }} Pause</button>
+      <button class="focus-btn focus-btn-stop" id="subjStopBtn" onclick="subjStopTimer()" style="display:none;">{{ icon('stop', size=15) }} Stop</button>
+    </div>
+    <p class="focus-note" id="subjTimerNote"></p>
+  </div>
+</div>
+<script>
+const SUBJECT_ID = {{ subject.id|tojson }};
+let subjSessionId = {{ (active_session.id if active_session and active_session.subject_id == subject.id and not active_session.note_id else none)|tojson }};
+let subjElapsed = {{ (active_session.current_elapsed_seconds() if active_session and active_session.subject_id == subject.id and not active_session.note_id else 0)|tojson }};
+let subjIsPaused = {{ (active_session.is_paused if active_session and active_session.subject_id == subject.id and not active_session.note_id else true)|tojson }};
+let subjTickHandle = null;
+
+function subjFmtHMS(total) {
+  const s = Math.max(0, Math.floor(total));
+  const h = String(Math.floor(s/3600)).padStart(2,'0');
+  const m = String(Math.floor((s%3600)/60)).padStart(2,'0');
+  const sec = String(s%60).padStart(2,'0');
+  return `${h}:${m}:${sec}`;
+}
+function subjRenderTimerUI() {
+  document.getElementById('subjTimerClockDisplay').textContent = subjFmtHMS(subjElapsed);
+  document.getElementById('subjStartBtn').style.display = subjSessionId ? 'none' : 'inline-flex';
+  document.getElementById('subjPauseBtn').style.display = subjSessionId ? 'inline-flex' : 'none';
+  document.getElementById('subjStopBtn').style.display = subjSessionId ? 'inline-flex' : 'none';
+  document.getElementById('subjPauseBtn').innerHTML = subjIsPaused ? 'Resume' : 'Pause';
+
+  const ringWrap = document.getElementById('subjTimerRingWrap');
+  const running = !!subjSessionId && !subjIsPaused;
+  ringWrap.classList.toggle('is-running', running);
+  ringWrap.classList.toggle('is-paused', !!subjSessionId && subjIsPaused);
+
+  const progressEl = document.getElementById('subjTimerRingProgress');
+  const fraction = subjSessionId ? (subjElapsed % 60) / 60 : 0;
+  progressEl.style.transition = (running && fraction > 0) ? 'width 1s linear' : 'none';
+  progressEl.style.width = (fraction * 100) + '%';
+}
+function subjTick() {
+  if (subjSessionId && !subjIsPaused) { subjElapsed += 1; subjRenderTimerUI(); }
+}
+async function subjStartTimer() {
+  if (subjSessionId) { document.getElementById('subjTimerNote').textContent = 'A timer is already running — stop it first.'; return; }
+  const res = await fetch(`/study/start_subject/${SUBJECT_ID}`, { method: 'POST' });
+  const data = await res.json();
+  if (data.error) { document.getElementById('subjTimerNote').textContent = data.error; return; }
+  subjSessionId = data.session_id; subjElapsed = data.elapsed_seconds; subjIsPaused = false;
+  subjRenderTimerUI();
+  if (typeof refreshMiniTimer === 'function') refreshMiniTimer();
+}
+async function subjPauseTimer() {
+  if (!subjSessionId) return;
+  const res = await fetch(`/study/toggle_pause/${subjSessionId}`, { method: 'POST' });
+  const data = await res.json();
+  subjIsPaused = data.is_paused; subjElapsed = data.elapsed_seconds;
+  subjRenderTimerUI();
+  if (typeof refreshMiniTimer === 'function') refreshMiniTimer();
+}
+async function subjStopTimer() {
+  if (!subjSessionId) return;
+  const res = await fetch(`/study/stop/${subjSessionId}`, { method: 'POST' });
+  const data = await res.json();
+  subjSessionId = null;
+  subjRenderTimerUI();
+  document.getElementById('subjTimerNote').textContent = 'Session saved (' + data.duration_minutes + ' min).';
+  if (typeof refreshMiniTimer === 'function') refreshMiniTimer();
+}
+subjRenderTimerUI();
+subjTickHandle = setInterval(subjTick, 1000);
+</script>
+
+<div class="card" style="margin-bottom:20px;">
+  <h3>{{ icon('notes', size=16) }} Study Materials</h3>
+  {% if materials %}
+    <table>
+      <tr><th>File</th><th>Type</th><th>Size</th><th></th></tr>
+      {% for n in materials %}
+      <tr>
+        <td><b>{{ n.filename }}</b></td>
+        <td>{{ n.file_type|upper }}</td>
+        <td>{{ n.size_label() }}</td>
+        <td><a class="btn btn-sm btn-primary" href="{{ url_for('note_view', note_id=n.id) }}">{{ icon('eye', size=13) }} Open</a></td>
+      </tr>
+      {% endfor %}
+    </table>
+  {% else %}
+    <p style="color:var(--text-muted); font-size:.85rem;">No materials uploaded yet.</p>
+  {% endif %}
+</div>
+
+{% if topics %}
+<div class="card" style="margin-bottom:20px;">
+  <h3>Important Topics</h3>
+  {% for t in topics %}
+    <a href="{{ url_for('note_view', note_id=t.id) }}" style="display:block; padding:9px 0; border-bottom:1px solid var(--border); font-size:.87rem; color:inherit; text-decoration:none;">
+      {{ t.filename }}
+    </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if links %}
+<div class="card" style="margin-bottom:20px;">
+  <h3>Videos &amp; Resources</h3>
+  {% for l in links %}
+    <a href="{{ l.external_url }}" target="_blank" rel="noopener" style="display:block; padding:9px 0; border-bottom:1px solid var(--border); font-size:.87rem;">
+      {{ l.filename }} {{ icon('arrow-right', size=12) }}
+    </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="card" style="margin-bottom:20px;">
+  <h3>Assignments</h3>
+  {% if assignments %}
+    <table>
+      <tr><th>Title</th><th>Deadline</th><th>Status</th><th></th></tr>
+      {% for a in assignments %}
+      <tr>
+        <td>{{ a.title }}</td>
+        <td style="font-size:.82rem; color:var(--text-muted);">{{ a.deadline.strftime('%d %b %Y, %I:%M %p') }}</td>
+        <td>
+          {% if a.id in submitted_ids %}<span class="badge badge-good">Submitted</span>
+          {% elif a.deadline < now %}<span class="badge badge-bad">Missed</span>
+          {% else %}<span class="badge badge-warn">Pending</span>{% endif %}
+        </td>
+        <td>
+          <button class="btn btn-sm btn-secondary" type="button" onclick="document.getElementById('sub-{{ a.id }}').classList.toggle('is-open-row')">
+            {{ 'Resubmit' if a.id in submitted_ids else 'Submit' }}
+          </button>
+        </td>
+      </tr>
+      <tr id="sub-{{ a.id }}" class="edit-row">
+        <td colspan="4" style="background:var(--surface-2);">
+          <form method="POST" action="{{ url_for('assignment_submit', assignment_id=a.id) }}" enctype="multipart/form-data" style="display:flex; gap:10px; align-items:center; padding:10px 4px;">
+            <input type="file" name="submission_file" required>
+            <button class="btn btn-sm btn-primary" type="submit">Upload</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+  {% else %}
+    <p style="color:var(--text-muted); font-size:.85rem;">No assignments yet.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h3>Quizzes &amp; Tests</h3>
+  {% if quizzes %}
+    <table>
+      <tr><th>Title</th><th>Questions</th><th>Duration</th><th></th></tr>
+      {% for q in quizzes %}
+      <tr>
+        <td>{{ q.title or 'Quiz' }}</td>
+        <td>{{ q.questions|length }}</td>
+        <td>{{ q.duration_minutes or '—' }} min</td>
+        <td><a class="btn btn-sm btn-primary" href="{{ url_for('quiz_take', quiz_id=q.id) }}">Take quiz</a></td>
+      </tr>
+      {% endfor %}
+    </table>
+  {% else %}
+    <p style="color:var(--text-muted); font-size:.85rem;">No quizzes yet.</p>
+  {% endif %}
+</div>
+<style>
+  .edit-row { display: none; }
+  .edit-row.is-open-row { display: table-row; }
+</style>
+{% endblock %}

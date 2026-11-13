@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}{{ quiz.title or 'Quiz' }} Scores · Teacher{% endblock %}
+{% block content %}
+<div class="topbar">
+  <div>
+    <div class="greeting">{{ quiz.title or 'Quiz' }}</div>
+    <div class="sub">{{ quiz.subject.name if quiz.subject else '' }} · {{ quiz.questions|length }} questions</div>
+  </div>
+  <a href="{{ url_for('teacher_subject_detail', subject_id=quiz.subject_id) }}" class="btn btn-sm btn-secondary">← Back</a>
+</div>
+
+<div class="card">
+  <h3>Student Scores ({{ attempts|length }})</h3>
+  {% if attempts %}
+    <table>
+      <tr><th>Student</th><th>Score</th><th>Percent</th><th>Result</th><th>Taken</th></tr>
+      {% for a in attempts %}
+      <tr>
+        <td>{{ a.student.name }}</td>
+        <td>{{ a.score }} / {{ a.total }}</td>
+        <td>{{ a.percent|round(1) }}%</td>
+        <td>
+          <span class="badge {{ 'badge-good' if a.percent >= 70 else ('badge-warn' if a.percent >= 40 else 'badge-bad') }}">{{ a.result_label }}</span>
+        </td>
+        <td style="font-size:.82rem; color:var(--text-muted);">{{ a.taken_at.strftime('%d %b, %I:%M %p') }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  {% else %}
+    <p style="color:var(--text-muted);">No attempts yet.</p>
+  {% endif %}
+</div>
+{% endblock %}

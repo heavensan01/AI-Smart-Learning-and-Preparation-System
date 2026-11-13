@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · Admin{% endblock %}
+{% block content %}
+<div class="topbar">
+  <div>
+    <div class="greeting">Admin Dashboard</div>
+    <div class="sub">Overall system statistics and account status.</div>
+  </div>
+</div>
+
+<div class="grid grid-4" style="margin-bottom:20px;">
+  <div class="card">
+    <h3>Total Students</h3>
+    <div class="stat-value">{{ total_students }}</div>
+    <div class="stat-label">{{ active_students }} active</div>
+  </div>
+  <div class="card">
+    <h3>Total Teachers</h3>
+    <div class="stat-value">{{ total_teachers }}</div>
+    <div class="stat-label">{{ active_teachers }} active</div>
+  </div>
+  <div class="card">
+    <h3>Subjects</h3>
+    <div class="stat-value">{{ total_subjects }}</div>
+    <div class="stat-label">across all sections</div>
+  </div>
+  <div class="card">
+    <h3>Active Users</h3>
+    <div class="stat-value">{{ active_students + active_teachers }}</div>
+    <div class="stat-label">students + teachers</div>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Upcoming Exams</h3>
+  {% if upcoming_exams %}
+    <table>
+      <tr><th>Subject</th><th>Section</th><th>Date</th></tr>
+      {% for s in upcoming_exams %}
+      <tr>
+        <td>{{ s.name }}</td>
+        <td style="color:var(--text-muted);">{{ s.section.label() if s.section else '—' }}</td>
+        <td>{{ s.exam_date.strftime('%d %b %Y') }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  {% else %}
+    <p style="color:var(--text-muted);">No upcoming exams scheduled.</p>
+  {% endif %}
+</div>
+{% endblock %}

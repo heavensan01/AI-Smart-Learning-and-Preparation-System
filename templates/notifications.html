@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Notifications · Smart Study{% endblock %}
+{% block content %}
+<div class="topbar">
+  <div>
+    <div class="greeting">Notifications</div>
+    <div class="sub">Exam reminders, assignment deadlines, new materials, and announcements.</div>
+  </div>
+</div>
+
+<div class="card">
+  {% if notifications %}
+    {% for n in notifications %}
+      <div class="notif-item">
+        <span class="notif-dot"></span>
+        <div class="notif-body">
+          <div class="notif-message">{{ n.message }}</div>
+          <div class="notif-time">{{ n.created_at.strftime('%d %b %Y, %I:%M %p') }} · {{ n.category }}</div>
+        </div>
+      </div>
+    {% endfor %}
+  {% else %}
+    <p style="color:var(--text-muted);">No notifications yet.</p>
+  {% endif %}
+</div>
+{% endblock %}

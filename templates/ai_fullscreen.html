@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#4f6bff">
+  <script>
+    (function () {
+      var stored = localStorage.getItem('sss-theme');
+      var theme = stored || ((window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+  <title>AI Assistant · Smart Study</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/ai_fullscreen.css') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+</head>
+<body class="aifs-body">
+{% macro ic(n, s=18) -%}
+{%- set P = {
+  'menu': '<path d="M4 7h16M4 12h16M4 17h16"/>',
+  'plus': '<path d="M12 5v14M5 12h14"/>',
+  'search': '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+  'sparkle': '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15z"/>',
+  'sun': '<circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M4.2 4.2l1.6 1.6M18.2 18.2l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.2 19.8l1.6-1.6M18.2 5.8l1.6-1.6"/>',
+  'moon': '<path d="M20 14.2A8.5 8.5 0 1 1 9.8 4a6.8 6.8 0 0 0 10.2 10.2Z"/>',
+  'expand': '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
+  'shrink': '<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>',
+  'download': '<path d="M12 4v11M7 11l5 5 5-5M5 20h14"/>',
+  'close': '<path d="M6 6l12 12M18 6 6 18"/>',
+  'clip': '<path d="m21 11-8.5 8.5a5 5 0 0 1-7-7L14 4a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4L15 7.5"/>',
+  'tools': '<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>',
+  'mic': '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
+  'send': '<path d="M12 19V5M5 12l7-7 7 7"/>',
+  'stop': '<rect x="7" y="7" width="10" height="10" rx="2"/>',
+  'arrow-down': '<path d="M12 5v14M5 12l7 7 7-7"/>',
+  'back': '<path d="M15 5l-7 7 7 7"/>',
+  'trash': '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-12M9 7V4h6v3"/>'
+} -%}
+<svg width="{{ s }}" height="{{ s }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ P[n]|safe }}</svg>
+{%- endmacro %}
+
+<div class="aifs" id="aifs">
+
+  <!-- ===================== LEFT: CHAT HISTORY ===================== -->
+  <aside class="aifs-side" id="aifsSide" aria-label="Chat history">
+    <div class="aifs-side-top">
+      <button type="button" class="aifs-icon-btn" id="sideToggleInner" title="Collapse menu" aria-label="Collapse menu">{{ ic('menu', 20) }}</button>
+    </div>
+
+    <button type="button" class="aifs-new" id="newChatBtn">{{ ic('plus', 18) }} <span>New chat</span></button>
+
+    <div class="aifs-search">
+      {{ ic('search', 15) }}
+      <input type="search" id="chatSearch" placeholder="Search chats" autocomplete="off">
+    </div>
+
+    <div class="aifs-list" id="chatList" role="list"></div>
+
+    <div class="aifs-side-foot">
+      <a class="aifs-foot-link" href="{{ url_for('dashboard') }}">{{ ic('back', 16) }} Back to dashboard</a>
+      <button type="button" class="aifs-foot-link aifs-foot-danger" id="clearAllBtn">{{ ic('trash', 16) }} Delete all chats</button>
+    </div>
+  </aside>
+  <div class="aifs-scrim" id="aifsScrim"></div>
+
+  <!-- ===================== MAIN ===================== -->
+  <main class="aifs-main">
+    <header class="aifs-head">
+      <div class="aifs-head-left">
+        <button type="button" class="aifs-icon-btn" id="sideToggle" title="Menu" aria-label="Open menu">{{ ic('menu', 20) }}</button>
+        <div class="aifs-brand">
+          <span class="aifs-brand-star">{{ ic('sparkle', 18) }}</span>
+          <span class="aifs-brand-name">Smart Study AI</span>
+          <span class="aifs-live {{ 'is-on' if ai_backend_active }}" title="{{ 'A live AI model is connected' if ai_backend_active else 'No API key — running on the offline engine' }}">{{ 'Live' if ai_backend_active else 'Offline' }}</span>
+        </div>
+      </div>
+
+      <div class="aifs-head-right">
+        {% if note_groups %}
+        <label class="aifs-notes" title="Let the AI use your class notes as reference">
+          {{ ic('clip', 15) }}
+          <select id="noteSelect" aria-label="Use class notes as reference">
+            <option value="">Class notes: off</option>
+            {% for g in note_groups %}
+              <optgroup label="{{ g.subject }}">
+                {% for n in g.notes %}<option value="{{ n.id }}">{{ n.name }}</option>{% endfor %}
+              </optgroup>
+            {% endfor %}
+          </select>
+        </label>
+        {% endif %}
+        <button type="button" class="aifs-icon-btn" id="exportBtn" title="Download this chat" aria-label="Download this chat">{{ ic('download', 18) }}</button>
+        <button type="button" class="aifs-icon-btn" id="fsBtn" title="Browser full screen" aria-label="Toggle browser full screen">
+          <span class="fs-in">{{ ic('expand', 18) }}</span><span class="fs-out">{{ ic('shrink', 18) }}</span>
+        </button>
+        <button type="button" class="aifs-icon-btn" id="themeBtn" title="Light / dark" aria-label="Toggle light or dark mode">
+          <span class="th-sun">{{ ic('sun', 18) }}</span><span class="th-moon">{{ ic('moon', 18) }}</span>
+        </button>
+        <a class="aifs-exit" href="{{ url_for('dashboard') }}" title="Exit full screen">{{ ic('close', 16) }} <span>Exit</span></a>
+      </div>
+    </header>
+
+    <section class="aifs-thread" id="thread" tabindex="-1">
+      <div class="aifs-empty" id="emptyState">
+        <h1 class="aifs-hello"><span id="helloLine">Hello</span></h1>
+        <p class="aifs-hello-sub">How can I help you today?</p>
+        <div class="aifs-suggest" id="suggestGrid"></div>
+      </div>
+      <div class="aifs-msgs" id="messages" aria-live="polite"></div>
+    </section>
+
+    <footer class="aifs-foot">
+      <button type="button" class="aifs-down" id="scrollDown" aria-label="Scroll to latest">{{ ic('arrow-down', 18) }}</button>
+
+      <div class="aifs-composer" id="composer">
+        <div class="aifs-files" id="fileStrip"></div>
+        <textarea id="prompt" rows="1" placeholder="Ask Smart Study AI anything…" aria-label="Message"></textarea>
+        <div class="aifs-composer-row">
+          <div class="aifs-composer-left">
+            <button type="button" class="aifs-chip-btn" id="attachBtn" title="Attach images or documents" aria-label="Attach files">{{ ic('plus', 19) }}</button>
+            <div class="aifs-tools-wrap">
+              <button type="button" class="aifs-chip-btn aifs-tools-btn" id="toolsBtn" aria-haspopup="true" aria-expanded="false">{{ ic('tools', 17) }} <span>Tools</span></button>
+              <div class="aifs-pop" id="toolsPop" role="menu"></div>
+            </div>
+            <span class="aifs-mode" id="modeChip" hidden></span>
+          </div>
+          <div class="aifs-composer-right">
+            <button type="button" class="aifs-chip-btn" id="micBtn" title="Speak" aria-label="Voice input">{{ ic('mic', 19) }}</button>
+            <button type="button" class="aifs-send" id="sendBtn" aria-label="Send" disabled>
+              <span class="send-ic">{{ ic('send', 19) }}</span><span class="stop-ic">{{ ic('stop', 17) }}</span>
+            </button>
+          </div>
+        </div>
+        <input type="file" id="fileInput" multiple hidden accept="image/png,image/jpeg,image/webp,image/gif,.pdf,.docx,.pptx,.txt">
+      </div>
+      <p class="aifs-disclaimer">AI can make mistakes — double-check important facts. Attach images, PDFs, Word, PowerPoint or text files.</p>
+    </footer>
+  </main>
+</div>
+
+<!-- Dialog (rename / delete confirm) -->
+<dialog id="dlg" class="aifs-dlg">
+  <form method="dialog" id="dlgForm">
+    <h3 id="dlgTitle">Title</h3>
+    <p id="dlgText"></p>
+    <input type="text" id="dlgInput" maxlength="100" autocomplete="off">
+    <div class="aifs-dlg-actions">
+      <button type="button" class="btn btn-outline" id="dlgCancel">Cancel</button>
+      <button type="submit" class="btn btn-primary" id="dlgOk">OK</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Chat item context menu -->
+<div class="aifs-pop aifs-ctx" id="ctxMenu" role="menu"></div>
+<div class="aifs-toast" id="toast" role="status"></div>
+
+<script>
+window.AIFS = {
+  userName: {{ current_user.name.split(' ')[0]|tojson }},
+  live: {{ (ai_backend_active|default(false))|tojson }},
+  subjects: {{ subject_names|tojson }},
+  modes: {{ modes|tojson }},
+  urls: {
+    list: {{ url_for('ai_api_conversations')|tojson }},
+    conv: {{ url_for('ai_api_conversation', conv_id=987654321)|tojson }},
+    rename: {{ url_for('ai_api_rename', conv_id=987654321)|tojson }},
+    pin: {{ url_for('ai_api_pin', conv_id=987654321)|tojson }},
+    del: {{ url_for('ai_api_delete', conv_id=987654321)|tojson }},
+    delAll: {{ url_for('ai_api_delete_all')|tojson }},
+    chat: {{ url_for('ai_api_chat')|tojson }},
+    page: {{ url_for('ai_fullscreen')|tojson }}
+  }
+};
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script src="{{ url_for('static', filename='js/ai_fullscreen.js') }}"></script>
+</body>
+</html>

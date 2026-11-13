@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Performance · Smart Study{% endblock %}
+{% block content %}
+{% from "_icons.html" import icon %}
+<div class="topbar">
+  <div>
+    <div class="greeting">Performance Analytics</div>
+    <div class="sub">Subject-wise scores, weekly study time, and strong/weak areas.</div>
+  </div>
+</div>
+
+<div class="grid grid-2" style="margin-bottom:20px;">
+  <div class="card">
+    <h3>Weekly Study Minutes</h3>
+    <div class="bar-chart">
+      {% set max_val = (weekly_minutes|map(attribute='minutes')|max) or 1 %}
+      {% for day in weekly_minutes %}
+        <div class="bar-chart-col">
+          <div class="bar-chart-bar" style="height: {{ ((day.minutes / max_val) * 100)|round }}%;" title="{{ day.minutes }} min"></div>
+          <div class="bar-chart-label">{{ day.date }}</div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="card">
+    <h3>{{ icon('flame', size=15) }} Study Streak</h3>
+    <div class="stat-value">{{ study_streak }} day{{ 's' if study_streak != 1 else '' }}</div>
+    <p style="font-size:.85rem; color:var(--text-muted); margin-top:6px;">Keep studying daily to build your streak.</p>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:20px;">
+  <h3>Subject-wise Performance</h3>
+  {% if subject_perf %}
+    <table>
+      <tr><th>Subject</th><th>Attempts</th><th>Average Score</th><th>Trend</th></tr>
+      {% for row in subject_perf %}
+      <tr>
+        <td>{{ row.subject.name }}</td>
+        <td>{{ row.attempts }}</td>
+        <td>
+          {% if row.avg_percent is not none %}
+            <span class="badge {{ 'badge-good' if row.avg_percent >= 70 else ('badge-warn' if row.avg_percent >= 40 else 'badge-bad') }}">{{ row.avg_percent }}%</span>
+          {% else %}—{% endif %}
+        </td>
+        <td style="font-size:.8rem; color:var(--text-muted);">{{ row.scores|join(' → ') if row.scores else '—' }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  {% else %}
+    <p style="color:var(--text-muted);">No subjects yet.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h3>Weak Subjects</h3>
+  {% if weak_subjects %}
+    {% for w in weak_subjects %}
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-bottom:1px solid var(--border); font-size:.87rem;">
+        <span>{{ w.subject.name }}</span>
+        <span class="badge badge-bad">{{ w.avg_percent }}% avg</span>
+      </div>
+    {% endfor %}
+  {% else %}
+    <p style="color:var(--text-muted);">No weak subjects detected — nice work.</p>
+  {% endif %}
+</div>
+{% endblock %}

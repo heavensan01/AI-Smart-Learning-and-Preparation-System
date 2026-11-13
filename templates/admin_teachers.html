@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Teachers · Admin{% endblock %}
+{% block content %}
+<div class="topbar">
+  <div>
+    <div class="greeting">Teachers</div>
+    <div class="sub">Create teacher logins. Assign them to subjects from the Subjects page.</div>
+  </div>
+</div>
+
+<div class="grid grid-2" style="margin-bottom:20px;">
+  <div class="card">
+    <h3>Add a teacher</h3>
+    <form method="POST">
+      <label>Full Name</label>
+      <input type="text" name="name" required>
+      <div class="form-row">
+        <div>
+          <label>Username</label>
+          <input type="text" name="username" required>
+        </div>
+        <div>
+          <label>Password</label>
+          <input type="text" name="password" required>
+        </div>
+      </div>
+      <label>Email (optional)</label>
+      <input type="email" name="email">
+      <div class="form-row">
+        <div>
+          <label>Security Question</label>
+          <select name="security_question" required>
+            <option value="" disabled selected>Choose a question</option>
+            {% for q in security_questions %}
+              <option value="{{ q }}">{{ q }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label>Answer</label>
+          <input type="text" name="security_answer" required minlength="2" maxlength="100" autocomplete="off">
+        </div>
+      </div>
+      <button class="btn btn-primary" type="submit" style="margin-top:12px;">Create teacher login</button>
+    </form>
+    <p style="font-size:.78rem; color:var(--text-muted); margin-top:10px;">
+      The teacher can change this password and security question later from their account.
+      The security question lets them reset a forgotten password themselves.
+    </p>
+  </div>
+</div>
+
+<div class="card">
+  <h3>All Teachers ({{ teachers|length }})</h3>
+  {% if teachers %}
+    <table>
+      <tr><th>Name</th><th>Username</th><th>Subjects Assigned</th><th>Status</th><th></th></tr>
+      {% for t in teachers %}
+      <tr>
+        <td>{{ t.name }}</td>
+        <td style="color:var(--text-muted);">{{ t.username }}</td>
+        <td>{{ t.subjects.count() }}</td>
+        <td>
+          {% if t.is_active %}<span class="badge badge-good">Active</span>
+          {% else %}<span class="badge badge-bad">Blocked</span>{% endif %}
+        </td>
+        <td style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button class="btn btn-sm btn-secondary" type="button" onclick="document.getElementById('edit-{{ t.id }}').classList.toggle('is-open-row')">Edit</button>
+          <form method="POST" action="{{ url_for('admin_teacher_toggle', teacher_id=t.id) }}">
+            <button class="btn btn-sm {{ 'btn-outline' if t.is_active else 'btn-primary' }}" type="submit">{{ 'Block' if t.is_active else 'Activate' }}</button>
+          </form>
+          <form method="POST" action="{{ url_for('admin_teacher_delete', teacher_id=t.id) }}" onsubmit="return confirm('Delete this teacher?');">
+            <button class="btn btn-sm btn-danger" type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+      <tr id="edit-{{ t.id }}" class="edit-row">
+        <td colspan="5" style="background:var(--surface-2);">
+          <form method="POST" action="{{ url_for('admin_teacher_edit', teacher_id=t.id) }}" style="display:flex; gap:10px; flex-wrap:wrap; align-items:end; padding:10px 4px;">
+            <div><label style="margin-top:0;">Name</label><input type="text" name="name" value="{{ t.name }}" style="width:180px;"></div>
+            <div><label style="margin-top:0;">Email</label><input type="email" name="email" value="{{ t.email or '' }}" style="width:200px;"></div>
+            <div><label style="margin-top:0;">New Password</label><input type="text" name="password" placeholder="leave blank to keep" style="width:160px;"></div>
+            <div><label style="margin-top:0;">Security Question {% if not t.has_security_question %}<span class="badge badge-bad">not set</span>{% endif %}</label>
+              <select name="security_question" style="width:230px;">
+                {% for q in security_questions %}
+                  <option value="{{ q }}" {{ 'selected' if q == t.security_question }}>{{ q }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div><label style="margin-top:0;">New Answer</label><input type="text" name="security_answer" placeholder="leave blank to keep" autocomplete="off" style="width:150px;"></div>
+            <button class="btn btn-sm btn-primary" type="submit">Save</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+  {% else %}
+    <p style="color:var(--text-muted);">No teachers yet.</p>
+  {% endif %}
+</div>
+<style>
+  .edit-row { display: none; }
+  .edit-row.is-open-row { display: table-row; }
+</style>
+{% endblock %}

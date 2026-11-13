@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Student Monitoring · Teacher{% endblock %}
+{% block content %}
+<div class="topbar">
+  <div>
+    <div class="greeting">Student Monitoring</div>
+    <div class="sub">Study time, quiz performance and activity for students in your sections.</div>
+  </div>
+</div>
+
+<div class="card">
+  {% if not rows %}
+    <p style="color:var(--text-muted);">No students found — you'll see them here once you're assigned a subject.</p>
+  {% else %}
+    <table>
+      <tr>
+        <th>Student</th><th>Section</th><th>Study Time</th><th>Quiz Attempts</th>
+        <th>Avg Score</th><th>Today's Mood</th><th>Last Login</th><th>Status</th>
+      </tr>
+      {% for r in rows %}
+      <tr>
+        <td><b>{{ r.student.name }}</b><div style="font-size:.76rem; color:var(--text-muted);">{{ r.student.register_number or r.student.username }}</div></td>
+        <td style="color:var(--text-muted); font-size:.82rem;">{{ r.student.section.label() if r.student.section else '—' }}</td>
+        <td>{{ r.total_minutes }} min</td>
+        <td>{{ r.quiz_attempts }}</td>
+        <td>
+          {% if r.avg_percent is not none %}
+            <span class="badge {{ 'badge-good' if r.avg_percent >= 60 else 'badge-warn' }}">{{ r.avg_percent }}%</span>
+          {% else %}
+            <span style="color:var(--text-muted); font-size:.82rem;">—</span>
+          {% endif %}
+        </td>
+        <td style="font-size:.82rem; text-transform:capitalize;">{{ r.mood_today or '—' }}</td>
+        <td style="font-size:.82rem; color:var(--text-muted);">
+          {{ r.last_login_at.strftime('%d %b, %I:%M %p') if r.last_login_at else 'Never' }}
+        </td>
+        <td>
+          {% if r.is_studying_now %}
+            <span class="badge badge-good">Studying now</span>
+          {% elif not r.student.is_active %}
+            <span class="badge badge-warn">Blocked</span>
+          {% else %}
+            <span style="color:var(--text-muted); font-size:.82rem;">Idle</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+  {% endif %}
+</div>
+{% endblock %}
